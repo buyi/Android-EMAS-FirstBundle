@@ -1,0 +1,118 @@
+buildscript {
+    repositories {
+        mavenLocal()
+        maven {url SDK_REPOSITORY_URL
+            credentials {
+                username = SDK_REPOSITORY_USERNAME
+                password = SDK_REPOSITORY_PASSWORD
+            }
+        }
+        maven {
+            url "http://maven.aliyun.com/nexus/content/groups/public/"
+        }
+        jcenter()
+    }
+    configurations.all {
+        resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
+        resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+    }
+    dependencies {
+        classpath "com.taobao.android:atlasplugin:2.3.3.rc63-SNAPSHOT"
+        classpath 'com.github.dcendents:android-maven-gradle-plugin:1.4.1'
+        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.6'
+    }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'com.taobao.atlas'
+apply plugin: 'maven-publish'
+
+def mvn_username = getEnvValue('NEXUS_USER_NAME', "")
+def mvn_password = getEnvValue('NEXUS_USER_PASSWORD', "")
+def emas_version_name = getEnvValue('EMAS_VERSION_NAME', "1.0.0-SNAPSHOT")
+if (mvn_username) {
+    println("mvn_username=" + mvn_username)
+}
+if (mvn_password) {
+    println("mvn_password=" + mvn_password)
+}
+
+String getEnvValue(key, defValue) {
+    def val = System.getProperty(key);
+    if (null != val) {
+        return val;
+    }
+    val = System.getenv(key);
+    if (null != val) {
+        return val;
+    }
+    return defValue;
+}
+
+group = MAVEN_GROUP
+version = emas_version_name
+
+tasks.withType(JavaCompile) {
+    sourceCompatibility = 1.7
+    targetCompatibility = 1.7
+}
+
+android {
+    compileSdkVersion 26
+    buildToolsVersion "26.0.2"
+    lintOptions {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_7
+        targetCompatibility JavaVersion.VERSION_1_7
+    }
+
+    defaultConfig {
+        versionName version
+    }
+}
+
+atlas.bundleConfig.awbBundle = true
+
+task sourcesJar(type: Jar) {
+    from('src/main/java') {
+        include '**'
+    }
+    classifier = 'sources'
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            if (project.gradle.startParameter.toString().contains("assembleDebug")) {
+                artifact "${project.buildDir}/outputs/awb/${project.name}-debug.awb"
+                artifactId MAVEN_ARTIFACTID
+            } else {
+                artifact "${project.buildDir}/outputs/awb/${project.name}-release.awb"
+                artifactId MAVEN_ARTIFACTID
+            }
+            artifact sourcesJar
+        }
+    }
+    repositories {
+        if (version.endsWith("-SNAPSHOT")) {
+            maven {
+                url "http://" + CUSTOM_REPOSITORY_HOST + "/repository/maven-snapshots/"
+                credentials {
+                    username = CUSTOM_REPOSITORY_USERNAME
+                    password = CUSTOM_REPOSITORY_PASSWORD
+                }
+            }
+        } else {
+            maven {
+                url "http://" + CUSTOM_REPOSITORY_HOST + "/repository/maven-releases"
+                credentials {
+                    username = CUSTOM_REPOSITORY_USERNAME
+                    password = CUSTOM_REPOSITORY_PASSWORD
+                }
+            }
+        }
+    }
+}
